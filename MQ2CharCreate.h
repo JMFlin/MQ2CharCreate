@@ -113,6 +113,11 @@ void CC_SetEditWndText(CEditWnd* pWnd, std::string_view text);
 std::string CC_ResolveRaceName(const std::string& input);
 std::string CC_ResolveClassName(const std::string& input);
 
+// Maps a proper-cased class name (e.g., "Shadow Knight") to the EQ uppercase
+// short name (e.g., "SHD") for MQ2AutoLogin database persona entries.
+// Returns empty string if the class name is not recognized.
+std::string CC_ClassNameToShortName(const std::string& className);
+
 // Inline template helpers (same logic as MQ2AutoLogin.h)
 
 template <typename T = CXWnd>

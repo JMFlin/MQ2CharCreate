@@ -210,6 +210,48 @@ std::string CC_ResolveClassName(const std::string& input)
 }
 
 // ============================================================================
+// Class name → EQ uppercase short name mapping
+//
+// Maps proper-cased class names (as used in EQ button names) to the uppercase
+// short names used by MQ2AutoLogin's persona database (e.g., "Shadow Knight" → "SHD").
+// Falls back to scanning the ClassInfo array if the static map misses.
+// ============================================================================
+
+std::string CC_ClassNameToShortName(const std::string& className)
+{
+	static const std::unordered_map<std::string, std::string> s_nameToShort = {
+		{"warrior", "WAR"}, {"cleric", "CLR"}, {"paladin", "PAL"},
+		{"ranger", "RNG"}, {"shadow knight", "SHD"}, {"druid", "DRU"},
+		{"monk", "MNK"}, {"bard", "BRD"}, {"rogue", "ROG"},
+		{"shaman", "SHM"}, {"necromancer", "NEC"}, {"wizard", "WIZ"},
+		{"magician", "MAG"}, {"enchanter", "ENC"},
+		{"beastlord", "BST"}, {"berserker", "BER"},
+	};
+
+	std::string lower = className;
+	std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+
+	auto it = s_nameToShort.find(lower);
+	if (it != s_nameToShort.end())
+		return it->second;
+
+	// Fallback: scan ClassInfo array for a matching name
+	for (int i = 1; i <= MAX_PLAYER_CLASSES; ++i)
+	{
+		std::string infoName = ClassInfo[i].Name;
+		std::transform(infoName.begin(), infoName.end(), infoName.begin(), ::tolower);
+		if (infoName == lower)
+		{
+			std::string shortName = ClassInfo[i].UCShortName;
+			to_upper(shortName);
+			return shortName;
+		}
+	}
+
+	return {};
+}
+
+// ============================================================================
 // Slash command: /charcreate
 //
 // Usage:

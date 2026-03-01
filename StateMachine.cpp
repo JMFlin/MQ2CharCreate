@@ -2,7 +2,7 @@
  * MQ2CharCreate — State machine implementations
  *
  * FSM states for the character creation flow:
- *   CCWait → login → server select → char select → create form → enter world → DB populate
+ *   CCWait → login → server select → char select → create form (DB populate) → enter world
  *
  * Mirrors MQ2AutoLogin's tinyfsm patterns. The hub state (CCWait) dispatches
  * to action states based on detected windows. Action states do their work in
@@ -656,6 +656,7 @@ public:
 				CC_DebugLog("  Clicked final Create button");
 				WriteChatf("\ag[CharCreate]\ax Clicked Create, entering world...");
 				m_statusMessage = "Character created, entering world...";
+				PopulateDatabase();
 				s_step = CCFormStep::Race; // reset for next time
 			}
 			else
@@ -672,58 +673,6 @@ public:
 			break;
 		}
 
-		transit<CCWait>();
-	}
-
-private:
-	// Find and click a button anywhere inside the creation window hierarchy.
-	// Uses SendWndClick2 (LButtonDown + LButtonUp) which works for toggle
-	// buttons and buttons that may be scrolled out of view.
-	bool ClickButton(CXWnd* pParent, const std::string& buttonName)
-	{
-		auto pButton = CC_GetChildWindow<CButtonWnd>(pParent, buttonName);
-		if (!pButton)
-		{
-			CC_DebugLog("  ClickButton: '%s' not found", buttonName.c_str());
-			return false;
-		}
-		CC_DebugLog("  ClickButton: '%s' found, visible=%d enabled=%d checked=%d",
-			buttonName.c_str(), pButton->IsVisible(), pButton->IsEnabled(), pButton->IsChecked());
-		SendWndClick2(pButton, "leftmouseup");
-		return true;
-	}
-};
-
-// ============================================================================
-// CCInGameDone — Character is in-game. Populate the MQ2AutoLogin database.
-//
-// Uses the login::db API to create server, account, character, and persona
-// entries so the character is ready for automated logins via MQ2AutoLogin.
-// ============================================================================
-
-class CCInGameDone : public CharCreate
-{
-public:
-	void entry() override
-	{
-		m_statusMessage = "Character in-game, populating database...";
-
-		if (!m_request)
-		{
-			m_active = false;
-			transit<CCWait>();
-			return;
-		}
-
-		PopulateDatabase();
-
-		WriteChatf("\ag[CharCreate]\ax Character \ay%s\ax created successfully on \ay%s\ax!",
-			m_request->characterName.c_str(), m_request->serverName.c_str());
-		WriteChatf("\ag[CharCreate]\ax Character added to MQ2AutoLogin database.");
-
-		m_statusMessage = "Done!";
-		m_active = false;
-		m_request.reset();
 		transit<CCWait>();
 	}
 
@@ -762,20 +711,70 @@ private:
 		to_lower(profile.characterName);
 		login::db::CreateCharacter(profile);
 
-		// 4. Create persona (class info) from the live in-game character
-		if (pLocalPlayer)
+		// 4. Create persona (class info) — derive from request since pLocalPlayer
+		//    isn't available yet at create-button click time
+		std::string shortClass = CC_ClassNameToShortName(m_request->className);
+		if (!shortClass.empty())
 		{
-			int classId = pLocalPlayer->GetClass();
-			if (classId > 0 && classId <= MAX_PLAYER_CLASSES)
-			{
-				profile.characterClass = ClassInfo[classId].UCShortName;
-				to_upper(profile.characterClass);
-				profile.characterLevel = static_cast<int>(pLocalPlayer->Level);
-				login::db::CreatePersona(profile);
-			}
+			profile.characterClass = shortClass;
+			profile.characterLevel = 1; // new character is always level 1
+			login::db::CreatePersona(profile);
+		}
+		else
+		{
+			CC_DebugLog("PopulateDatabase: Could not resolve class '%s' to short name, skipping persona",
+				m_request->className.c_str());
 		}
 
 		m_dbPopulated = true;
+	}
+
+	// Find and click a button anywhere inside the creation window hierarchy.
+	// Uses SendWndClick2 (LButtonDown + LButtonUp) which works for toggle
+	// buttons and buttons that may be scrolled out of view.
+	bool ClickButton(CXWnd* pParent, const std::string& buttonName)
+	{
+		auto pButton = CC_GetChildWindow<CButtonWnd>(pParent, buttonName);
+		if (!pButton)
+		{
+			CC_DebugLog("  ClickButton: '%s' not found", buttonName.c_str());
+			return false;
+		}
+		CC_DebugLog("  ClickButton: '%s' found, visible=%d enabled=%d checked=%d",
+			buttonName.c_str(), pButton->IsVisible(), pButton->IsEnabled(), pButton->IsChecked());
+		SendWndClick2(pButton, "leftmouseup");
+		return true;
+	}
+};
+
+// ============================================================================
+// CCInGameDone — Character is in-game. Show success message and clean up.
+//
+// DB population already happened at CC_Create_Button click time (in
+// CCFillCreateForm::PopulateDatabase). This state just provides the
+// user-facing success message and resets m_active / m_request.
+// ============================================================================
+
+class CCInGameDone : public CharCreate
+{
+public:
+	void entry() override
+	{
+		if (!m_request)
+		{
+			m_active = false;
+			transit<CCWait>();
+			return;
+		}
+
+		WriteChatf("\ag[CharCreate]\ax Character \ay%s\ax created successfully on \ay%s\ax!",
+			m_request->characterName.c_str(), m_request->serverName.c_str());
+		WriteChatf("\ag[CharCreate]\ax Character added to MQ2AutoLogin database.");
+
+		m_statusMessage = "Done!";
+		m_active = false;
+		m_request.reset();
+		transit<CCWait>();
 	}
 };
 
