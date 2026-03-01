@@ -1,0 +1,8 @@
+*.user
+*.obj
+*.dll
+*.pdb
+*.lib
+*.exp
+*.log
+*.recipe
