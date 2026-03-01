@@ -53,7 +53,7 @@ Requires MacroQuest SDK (built as part of the MacroQuest solution). C++17, MSVC 
 - Follow MacroQuest plugin conventions (PreSetup, PLUGIN_VERSION macros)
 - Use `CC_` prefix on all exported symbols to avoid collisions with MQ2AutoLogin
 - Window/control names go in `CCWindowNames` namespace, not scattered as string literals
-- Debug logging via `CC_DebugLog()` — writes to config dir, visible even during PRECHARSELECT
+- Debug logging via `CC_DebugLog()` — writes to `macroquest/build/bin/release/config/MQ2CharCreate_debug.txt`, visible even during PRECHARSELECT
 
 ## Related Repos
 
