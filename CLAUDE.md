@@ -40,6 +40,14 @@ cd ../..
 
 Requires MacroQuest SDK (built as part of the MacroQuest solution). C++17, MSVC x64.
 
+## MacroQuest documentation
+
+- **[docs.macroquest.org](https://docs.macroquest.org/)** — Main documentation site
+- **[Top-Level Objects](https://docs.macroquest.org/reference/top-level-objects/)** — All TLOs (Me, Spawn, Spell, Group, Raid, etc.)
+- **[Slash Commands](https://docs.macroquest.org/reference/commands/)** — All `/commands`
+- **[Data Types](https://docs.macroquest.org/reference/data-types/)** — TLO member/method reference per type
+- **[Plugins](https://docs.macroquest.org/plugins/)** — Plugin documentation (MQ2Nav, MQ2AutoLogin, etc.)
+
 ## Code Quality Rules
 
 - Follow MacroQuest plugin conventions (PreSetup, PLUGIN_VERSION macros)
