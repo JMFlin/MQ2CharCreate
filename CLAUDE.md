@@ -48,6 +48,20 @@ Requires MacroQuest SDK (built as part of the MacroQuest solution). C++17, MSVC 
 - **[Data Types](https://docs.macroquest.org/reference/data-types/)** — TLO member/method reference per type
 - **[Plugins](https://docs.macroquest.org/plugins/)** — Plugin documentation (MQ2Nav, MQ2AutoLogin, etc.)
 
+## Quality Gates
+
+```bash
+repo-hotspots --repo . --since "5 days ago" --stdout  # Flag files exceeding complexity thresholds
+```
+
+### Review agents
+
+**Use proactively** after code changes — launch via the Agent tool without waiting for the user to ask.
+
+- **Small change (1-2 files):** `code-reviewer` + `principles-reviewer`
+- **Multi-file change:** All five general agents in parallel
+- **After completing a task:** Run at minimum `code-reviewer` before reporting done
+
 ## Code Quality Rules
 
 - Follow MacroQuest plugin conventions (PreSetup, PLUGIN_VERSION macros)
