@@ -58,8 +58,9 @@ repo-hotspots --repo . --since "5 days ago" --stdout  # Flag files exceeding com
 
 **Use proactively** after code changes — launch via the Agent tool without waiting for the user to ask.
 
-- **Small change (1-2 files):** `code-reviewer` + `principles-reviewer`
-- **Multi-file change:** All five general agents in parallel
+Agents run in **two phases** — Phase 1 findings feed into the refactoring reviewer:
+- **Phase 1** (parallel): `code-reviewer` + `principles-reviewer` (small change) or all four general agents (multi-file)
+- **Phase 2**: `refactoring-reviewer` with all Phase 1 findings appended to its prompt
 - **After completing a task:** Run at minimum `code-reviewer` before reporting done
 
 ## Code Quality Rules
