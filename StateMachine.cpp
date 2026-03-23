@@ -656,7 +656,6 @@ public:
 				CC_DebugLog("  Clicked final Create button");
 				WriteChatf("\ag[CharCreate]\ax Clicked Create, entering world...");
 				m_statusMessage = "Character created, entering world...";
-				PopulateDatabase();
 				s_step = CCFormStep::Race; // reset for next time
 			}
 			else
@@ -677,58 +676,6 @@ public:
 	}
 
 private:
-	void PopulateDatabase()
-	{
-		if (!m_request || m_dbPopulated)
-			return;
-
-		ProfileRecord profile;
-		profile.accountName = m_request->accountName;
-		profile.accountPassword = m_request->accountPassword;
-		profile.serverName = GetServerShortName();
-		profile.characterName = m_request->characterName;
-
-		// Determine server type from the EQ executable path
-		char path[MAX_PATH] = { 0 };
-		GetModuleFileName(nullptr, path, MAX_PATH);
-		const std::filesystem::path fs_path(path);
-
-		if (const auto server_type = login::db::GetServerTypeFromPath(fs_path.parent_path().string()))
-			profile.serverType = *server_type;
-		else
-			profile.serverType = GetBuildTargetName(static_cast<BuildTarget>(gBuild));
-
-		to_lower(profile.serverType);
-		to_lower(profile.accountName);
-
-		// 1. Ensure server short↔long name mapping exists
-		login::db::CreateOrUpdateServer(GetServerShortName(), m_request->serverName);
-
-		// 2. Create account entry (idempotent if it already exists)
-		login::db::CreateAccount(profile);
-
-		// 3. Create character entry
-		to_lower(profile.characterName);
-		login::db::CreateCharacter(profile);
-
-		// 4. Create persona (class info) — derive from request since pLocalPlayer
-		//    isn't available yet at create-button click time
-		std::string shortClass = CC_ClassNameToShortName(m_request->className);
-		if (!shortClass.empty())
-		{
-			profile.characterClass = shortClass;
-			profile.characterLevel = 1; // new character is always level 1
-			login::db::CreatePersona(profile);
-		}
-		else
-		{
-			CC_DebugLog("PopulateDatabase: Could not resolve class '%s' to short name, skipping persona",
-				m_request->className.c_str());
-		}
-
-		m_dbPopulated = true;
-	}
-
 	// Find and click a button anywhere inside the creation window hierarchy.
 	// Uses SendWndClick2 (LButtonDown + LButtonUp) which works for toggle
 	// buttons and buttons that may be scrolled out of view.
@@ -767,14 +714,82 @@ public:
 			return;
 		}
 
-		WriteChatf("\ag[CharCreate]\ax Character \ay%s\ax created successfully on \ay%s\ax!",
-			m_request->characterName.c_str(), m_request->serverName.c_str());
-		WriteChatf("\ag[CharCreate]\ax Character added to MQ2AutoLogin database.");
+		// Verify we landed in Crescent Reach — confirms the character was actually created
+		const char* zoneShort = pZoneInfo ? pZoneInfo->ShortName : nullptr;
+		CC_DebugLog("CCInGameDone: zone shortname = '%s'", zoneShort ? zoneShort : "(null)");
 
-		m_statusMessage = "Done!";
+		if (zoneShort && ci_equals(zoneShort, "cresent"))
+		{
+			PopulateDatabase();
+			WriteChatf("\ag[CharCreate]\ax Character \ay%s\ax created successfully on \ay%s\ax!",
+				m_request->characterName.c_str(), m_request->serverName.c_str());
+			WriteChatf("\ag[CharCreate]\ax Character added to MQ2AutoLogin database.");
+			m_statusMessage = "Done!";
+		}
+		else
+		{
+			m_errorMessage = fmt::format("Unexpected zone '{}' — expected 'cresent'. DB not populated.",
+				zoneShort ? zoneShort : "(null)");
+			WriteChatf("\ar[CharCreate]\ax %s", m_errorMessage.c_str());
+			m_statusMessage = "Failed — wrong zone";
+		}
+
 		m_active = false;
 		m_request.reset();
 		transit<CCWait>();
+	}
+
+private:
+	void PopulateDatabase()
+	{
+		if (!m_request || m_dbPopulated)
+			return;
+
+		ProfileRecord profile;
+		profile.accountName = m_request->accountName;
+		profile.accountPassword = m_request->accountPassword;
+		profile.serverName = GetServerShortName();
+		profile.characterName = m_request->characterName;
+
+		// Determine server type from the EQ executable path
+		char path[MAX_PATH] = { 0 };
+		GetModuleFileName(nullptr, path, MAX_PATH);
+		const std::filesystem::path fs_path(path);
+
+		if (const auto server_type = login::db::GetServerTypeFromPath(fs_path.parent_path().string()))
+			profile.serverType = *server_type;
+		else
+			profile.serverType = GetBuildTargetName(static_cast<BuildTarget>(gBuild));
+
+		to_lower(profile.serverType);
+		to_lower(profile.accountName);
+
+		// 1. Ensure server short-long name mapping exists
+		login::db::CreateOrUpdateServer(GetServerShortName(), m_request->serverName);
+
+		// 2. Create account entry (idempotent if it already exists)
+		login::db::CreateAccount(profile);
+
+		// 3. Create character entry
+		to_lower(profile.characterName);
+		login::db::CreateCharacter(profile);
+
+		// 4. Create persona (class info) — pLocalPlayer is available now but
+		//    we derive from the request for consistency
+		std::string shortClass = CC_ClassNameToShortName(m_request->className);
+		if (!shortClass.empty())
+		{
+			profile.characterClass = shortClass;
+			profile.characterLevel = 1;
+			login::db::CreatePersona(profile);
+		}
+		else
+		{
+			CC_DebugLog("PopulateDatabase: Could not resolve class '%s' to short name, skipping persona",
+				m_request->className.c_str());
+		}
+
+		m_dbPopulated = true;
 	}
 };
 
